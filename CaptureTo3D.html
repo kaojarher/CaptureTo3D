@@ -3,152 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D 行動相機建模工具 v2</title>
+    <title>3D 行動掃描 v3 - 立體感增強版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         :root {
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --bg-dark: #111827;
-            --panel-bg: rgba(31, 41, 55, 0.9);
+            --primary: #8b5cf6; /* 紫色代表進階版 */
+            --primary-hover: #7c3aed;
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(15, 23, 42, 0.9);
+            --text-main: #f1f5f9;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
 
-        body {
-            background-color: var(--bg-dark);
-            color: #ffffff;
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
 
-        header {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 12px;
-            text-align: center;
-            font-size: 1.1rem;
-            font-weight: bold;
-            z-index: 10;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
+        header { background: rgba(0, 0, 0, 0.6); padding: 12px; text-align: center; font-size: 1rem; font-weight: bold; letter-spacing: 1px; z-index: 10; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
 
-        #container {
-            flex: 1;
-            position: relative;
-            width: 100%;
-            background: #000;
-        }
+        #container { flex: 1; position: relative; width: 100%; background: #000; }
 
-        video, #three-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+        video, #three-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
 
-        #three-canvas {
-            display: none;
-            z-index: 5;
-        }
+        #three-canvas { display: none; z-index: 5; }
 
-        #loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 20;
-            display: none;
-        }
+        #loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; display: none; }
 
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
-        }
+        .spinner { width: 30px; height: 30px; border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .control-panel {
-            position: relative;
-            background: var(--panel-bg);
-            backdrop-filter: blur(10px);
-            padding: 20px;
-            border-radius: 20px 20px 0 0;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        .control-panel { position: relative; background: var(--panel-bg); backdrop-filter: blur(15px); padding: 20px; border-radius: 24px 24px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); z-index: 10; display: flex; flex-direction: column; gap: 12px; }
 
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-        }
+        .btn-group { display: flex; gap: 10px; width: 100%; }
 
-        button {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            color: white;
-        }
+        button { flex: 1; padding: 16px; border: none; border-radius: 14px; font-size: 1rem; font-weight: bold; cursor: pointer; color: white; transition: background 0.2s; }
 
         .btn-primary { background: var(--primary); }
         .btn-primary:hover { background: var(--primary-hover); }
-        .btn-secondary { background: rgba(255, 255, 255, 0.15); }
+        .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
 
         .hidden { display: none !important; }
-        #info-text { font-size: 0.85rem; color: #9ca3af; text-align: center; }
+        #info-text { font-size: 0.8rem; color: #94a3b8; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
 
-    <header>3D SCANNER v2</header>
+    <header>3D SCANNER <span style="color:var(--primary);">NORMAL-BASED v3</span></header>
 
     <div id="container">
         <video id="video" autoplay playsinline muted></video>
-        <canvas id="capture-canvas" style="display:none;"></canvas>
+        <canvas id="analysis-canvas" style="display:none;"></canvas>
         <div id="three-canvas"></div>
 
         <div id="loading-overlay">
             <div class="spinner"></div>
-            <p id="loading-text">正在分析影像結構...</p>
+            <p id="loading-text">分析立體紋理...</p>
         </div>
     </div>
 
     <div class="control-panel">
-        <p id="info-text">請將鏡頭對準物體，保持光線充足</p>
+        <p id="info-text">請將鏡頭對準物體。<br>使用背景乾淨、光線單一（有陰影）的影像，立體感最強。</p>
         
         <div id="capture-menu" class="btn-group">
-            <button class="btn-primary" onclick="captureAndProcess()">📸 拍攝並生成 3D 模型</button>
+            <button class="btn-primary" onclick="captureAndProcessAdvanced()">📸 捕捉立體模型</button>
         </div>
 
         <div id="preview-menu" class="btn-group hidden">
@@ -160,7 +78,7 @@
 
     <script>
         const video = document.getElementById('video');
-        const captureCanvas = document.getElementById('capture-canvas');
+        const analysisCanvas = document.getElementById('analysis-canvas');
         const threeCanvas = document.getElementById('three-canvas');
         const loadingOverlay = document.getElementById('loading-overlay');
         const loadingText = document.getElementById('loading-text');
@@ -169,28 +87,27 @@
         const infoText = document.getElementById('info-text');
 
         let scene, camera, renderer, controls, currentMesh;
-        const GRID_SIZE = 80; // 調整為超穩定網格大小，確保運算與著色瞬間完成
+        const ANALYSIS_SIZE = 128; // 分析解析度，128x128 適合手機
 
         async function initCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } },
+                    video: { facingMode: 'environment', width: { ideal: 1024 }, height: { ideal: 1024 } },
                     audio: false
                 });
                 video.srcObject = stream;
-                // 確保影片播放
                 video.play();
             } catch (err) {
-                alert('相機啟動失敗，請確認已開啟權限並使用 HTTPS 環境：' + err.message);
+                alert('相機啟動失敗：' + err.message);
             }
         }
 
         function initThree() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111827);
+            scene.background = new THREE.Color(0x0f172a);
 
             camera = new THREE.PerspectiveCamera(45, threeCanvas.clientWidth / threeCanvas.clientHeight, 0.1, 1000);
-            camera.position.set(0, 35, 45);
+            camera.position.set(0, 30, 50);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight);
@@ -199,19 +116,18 @@
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
+            controls.dampingFactor = 0.08;
 
-            // 強化光源，避免暗色模型看不清
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-            scene.add(ambientLight);
+            // 光源設計是立體感關鍵
+            scene.add(new THREE.AmbientLight(0xffffff, 0.3)); // 降低環境光
 
-            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight1.position.set(20, 40, 20);
-            scene.add(dirLight1);
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.0); // 強化主光
+            mainLight.position.set(15, 30, 15);
+            scene.add(mainLight);
 
-            const dirLight2 = new THREE.DirectionalLight(0x4f46e5, 0.5); // 補一個帶有科技感的藍色環境光
-            dirLight2.position.set(-20, -10, -20);
-            scene.add(dirLight2);
+            const fillLight = new THREE.PointLight(0x8b5cf6, 0.5); // 補一個紫色的側光，強化紋理光澤
+            fillLight.position.set(-20, 10, 5);
+            scene.add(fillLight);
 
             window.addEventListener('resize', onWindowResize);
             animate();
@@ -230,101 +146,124 @@
             renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight);
         }
 
-        // 核心修正：穩定的影像處理與 3D 轉換
-        async function captureAndProcess() {
-            if (video.videoWidth === 0 || video.videoHeight === 0) {
-                alert("相機影像尚未就緒，請稍候再試。");
-                return;
-            }
+        // ==================== 進階立體處理：Sobel 算子斜率分析 ====================
+        async function captureAndProcessAdvanced() {
+            if (video.videoWidth === 0 || video.videoHeight === 0) return;
+            
+            showLoading("擷取影像...");
+            await delay(100);
 
-            showLoading("擷取並優化影像中...");
+            // 1. 擷取高解析度正方形影像
+            const ctx = analysisCanvas.getContext('2d');
+            const videoSize = Math.min(video.videoWidth, video.videoHeight);
+            
+            // 我們先擷取一個較大、較清晰的區域
+            analysisCanvas.width = 512;
+            analysisCanvas.height = 512;
+            ctx.drawImage(video, (video.videoWidth - videoSize) / 2, (video.videoHeight - videoSize) / 2, videoSize, videoSize, 0, 0, 512, 512);
+
+            // 2. 為了分析幾何體，我們將影像縮小到 ANALYSIS_SIZE，但保留 512 用作貼圖
+            const analysisData = ctx.getImageData(0, 0, 512, 512);
+            
+            // 將 512 貼圖轉換為 Three.js 紋理
+            const texture = new THREE.CanvasTexture(analysisCanvas);
+
+            showLoading("分析紋理斜率 (Sobel)...");
             await delay(200);
 
-            // 1. 擷取畫面
-            captureCanvas.width = GRID_SIZE;
-            captureCanvas.height = GRID_SIZE;
-            const ctx = captureCanvas.getContext('2d');
-            
-            // 安全裁切正方形
-            const minDim = Math.min(video.videoWidth, video.videoHeight);
-            const sx = (video.videoWidth - minDim) / 2;
-            const sy = (video.videoHeight - minDim) / 2;
-            ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, GRID_SIZE, GRID_SIZE);
-
-            // 2. 影像轉換（計算深度與高度圖）
-            const imgData = ctx.getImageData(0, 0, GRID_SIZE, GRID_SIZE);
-            const pixels = imgData.data;
-            const heights = new Float32Array(GRID_SIZE * GRID_SIZE);
-
-            for (let i = 0; i < pixels.length; i += 4) {
-                let gray = 0.299 * pixels[i] + 0.587 * pixels[i+1] + 0.114 * pixels[i+2];
-                // 強化對比度
-                gray = (gray - 128) * 1.3 + 128;
-                heights[i / 4] = Math.max(0, Math.min(255, gray)) / 255.0;
+            // 轉灰階
+            const grayData = new Float32Array(512 * 512);
+            for (let i = 0; i < analysisData.data.length; i += 4) {
+                grayData[i / 4] = (0.299 * analysisData.data[i] + 0.587 * analysisData.data[i+1] + 0.114 * analysisData.data[i+2]) / 255.0;
             }
 
-            // 3. 建構 3D 實體頂點資料 (直接使用無索引三角面，保證 100% 成功渲染)
-            const vertices = [];
-            const normals = [];
-            const cellSize = 30 / GRID_SIZE;
-            const offset = 15;
+            // 使用 Sobel 算子分析邊緣與亮度斜率 (模擬深度變化)
+            const depthField = new Float32Array(512 * 512);
+            const width = 512;
+            const height = 512;
 
-            for (let y = 0; y < GRID_SIZE - 1; y++) {
-                for (let x = 0; x < GRID_SIZE - 1; x++) {
-                    // 取得相鄰四個點的高度
-                    const h00 = heights[y * GRID_SIZE + x] * 6;
-                    const h10 = heights[y * GRID_SIZE + (x + 1)] * 6;
-                    const h01 = heights[(y + 1) * GRID_SIZE + x] * 6;
-                    const h11 = heights[(y + 1) * GRID_SIZE + (x + 1)] * 6;
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    // Sobel X kernel
+                    // -1 0 1
+                    // -2 0 2
+                    // -1 0 1
+                    const pixelX = (
+                        (grayData[(y - 1) * width + (x - 1)] * -1) + (grayData[(y - 1) * width + (x + 1)] * 1) +
+                        (grayData[(y) * width + (x - 1)] * -2) + (grayData[(y) * width + (x + 1)] * 2) +
+                        (grayData[(y + 1) * width + (x - 1)] * -1) + (grayData[(y + 1) * width + (x + 1)] * 1)
+                    );
 
-                    // 實際空間座標
-                    const px0 = x * cellSize - offset;
-                    const px1 = (x + 1) * cellSize - offset;
-                    const py0 = y * cellSize - offset;
-                    const py1 = (y + 1) * cellSize - offset;
+                    // Sobel Y kernel
+                    // -1 -2 -1
+                    //  0  0  0
+                    //  1  2  1
+                    const pixelY = (
+                        (grayData[(y - 1) * width + (x - 1)] * -1) + (grayData[(y - 1) * width + (x)] * -2) + (grayData[(y - 1) * width + (x + 1)] * -1) +
+                        (grayData[(y + 1) * width + (x - 1)] * 1) + (grayData[(y + 1) * width + (x)] * 2) + (grayData[(y + 1) * width + (x + 1)] * 1)
+                    );
 
-                    // 三角形 1
-                    vertices.push(px0, py0, h00,  px1, py0, h10,  px0, py1, h01);
-                    // 三角形 2
-                    vertices.push(px1, py0, h10,  px1, py1, h11,  px0, py1, h01);
+                    // 計算斜率強度
+                    const magnitude = Math.sqrt(pixelX * pixelX + pixelY * pixelY);
+                    
+                    // 將斜率與原始亮度結合，形成高度 (斜率越大代表邊緣，我們讓它凸起)
+                    depthField[y * width + x] = grayData[y * width + x] * 0.4 + magnitude * 0.6;
                 }
             }
 
-            // 建立 BufferGeometry
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            showLoading("建構立體網格...");
+            await delay(200);
+
+            // 建構網格 (為了效能與 OBJ 匯出相容性，使用 ANALYSIS_SIZE 的網格)
+            // 但我們會從 512 的 depthField 中採樣
+            const geometry = new THREE.PlaneGeometry(30, 30, ANALYSIS_SIZE - 1, ANALYSIS_SIZE - 1);
+            const posAttr = geometry.attributes.position;
+            const scaleFactor = 512 / ANALYSIS_SIZE;
+
+            for (let y = 0; y < ANALYSIS_SIZE; y++) {
+                for (let x = 0; x < ANALYSIS_SIZE; x++) {
+                    const index = y * ANALYSIS_SIZE + x;
+                    
+                    // 對深度場進行採樣
+                    const depthX = Math.floor(x * scaleFactor);
+                    const depthY = Math.floor(y * scaleFactor);
+                    const depthValue = depthField[depthY * 512 + depthX];
+                    
+                    // 設定 Z 軸高度 (乘上一個更激進的高度係數)
+                    posAttr.setZ(index, depthValue * 8);
+                }
+            }
             geometry.computeVertexNormals();
 
-            // 套用具有明顯光影立體感的物理材質
+            // 套用同時具有紋理與物理材質特性
             const material = new THREE.MeshStandardMaterial({
-                color: 0x4f46e5,
-                roughness: 0.2,
-                metalness: 0.5,
+                map: texture, // 貼上照片紋理
+                color: 0xcccccc, // 降低材質基色，讓照片紋理更明顯
+                roughness: 0.6, // 設定表面粗糙度
+                metalness: 0.1, // 降低金屬感，適合真實物體照片
                 side: THREE.DoubleSide,
-                flatShading: true
+                flatShading: false // 使用平滑著色
             });
 
             if (currentMesh) scene.remove(currentMesh);
             currentMesh = new THREE.Mesh(geometry, material);
-            currentMesh.rotation.x = -Math.PI / 2; // 水平躺放
+            currentMesh.rotation.x = -Math.PI / 2;
             scene.add(currentMesh);
 
-            // 重設鏡頭視角焦點，確保物體出現在畫面正中央
+            // 重設鏡頭
             controls.target.set(0, 0, 0);
-            camera.position.set(0, 35, 45);
+            camera.position.set(0, 30, 50);
             controls.update();
 
-            // 4. 切換顯示畫布
+            // 顯示 3D 畫布
             video.style.display = 'none';
             threeCanvas.style.display = 'block';
-            
-            // 強制重繪
             onWindowResize();
 
             captureMenu.classList.add('hidden');
             previewMenu.classList.remove('hidden');
             hideLoading();
-            infoText.innerText = "✨ 3D 模型已成功生成！請在畫面上滑動旋轉";
+            infoText.innerText = "✨ 進階立體模型已生成！請滑動旋轉";
         }
 
         function resetScanner() {
@@ -332,7 +271,7 @@
             threeCanvas.style.display = 'none';
             captureMenu.classList.remove('hidden');
             previewMenu.classList.add('hidden');
-            infoText.innerText = "請將鏡頭對準物體，保持光線充足";
+            infoText.innerText = "請將鏡頭對準物體。\n使用背景乾淨、光線單一（有陰影）的影像，立體感最強。";
             if (currentMesh) {
                 scene.remove(currentMesh);
                 currentMesh = null;
@@ -342,32 +281,50 @@
         // ==================== 穩定的 OBJ / STL 匯出系統 ====================
         function exportOBJ() {
             if (!currentMesh) return;
-            let objText = "# 3D Scanner Mobile OBJ\n";
-            const pos = currentMesh.geometry.attributes.position;
+            showLoading("正在生成 OBJ...");
+            const geometry = currentMesh.geometry;
+            const pos = geometry.attributes.position;
+            const index = geometry.index;
+            let objText = "# 3D Scanner Mobile v3 OBJ\n";
 
+            // 頂點
             for (let i = 0; i < pos.count; i++) {
-                // 水平轉換後的空間座標
                 objText += `v ${pos.getX(i).toFixed(4)} ${pos.getZ(i).toFixed(4)} ${(-pos.getY(i)).toFixed(4)}\n`;
             }
-            for (let i = 1; i <= pos.count; i += 3) {
-                objText += `f ${i} ${i+1} ${i+2}\n`;
+            // 面
+            if (index) {
+                for (let i = 0; i < index.count; i += 3) {
+                    objText += `f ${index.getX(i)+1} ${index.getY(i)+1} ${index.getZ(i)+1}\n`;
+                }
+            } else {
+                for (let i = 1; i <= pos.count; i += 3) {
+                    objText += `f ${i} ${i+1} ${i+2}\n`;
+                }
             }
+            hideLoading();
             downloadFile(objText, 'model.obj');
         }
 
         function exportSTL() {
             if (!currentMesh) return;
+            showLoading("正在生成 STL...");
+            const geometry = currentMesh.geometry;
+            const pos = geometry.attributes.position;
+            const index = geometry.index;
             let stlText = "solid MobileModel\n";
-            const pos = currentMesh.geometry.attributes.position;
 
-            for (let i = 0; i < pos.count; i += 3) {
-                stlText += `  facet normal 0 0 0\n    outer loop\n`;
-                stlText += `      vertex ${pos.getX(i).toFixed(4)} ${pos.getZ(i).toFixed(4)} ${(-pos.getY(i)).toFixed(4)}\n`;
-                stlText += `      vertex ${pos.getX(i+1).toFixed(4)} ${pos.getZ(i+1).toFixed(4)} ${(-pos.getY(i+1)).toFixed(4)}\n`;
-                stlText += `      vertex ${pos.getX(i+2).toFixed(4)} ${pos.getZ(i+2).toFixed(4)} ${(-pos.getY(i+2)).toFixed(4)}\n`;
-                stlText += `    endloop\n  endfacet\n`;
+            if (index) {
+                for (let i = 0; i < index.count; i += 3) {
+                    const i1 = index.getX(i), i2 = index.getY(i), i3 = index.getZ(i);
+                    stlText += `  facet normal 0 0 0\n    outer loop\n`;
+                    stlText += `      vertex ${pos.getX(i1).toFixed(4)} ${pos.getZ(i1).toFixed(4)} ${(-pos.getY(i1)).toFixed(4)}\n`;
+                    stlText += `      vertex ${pos.getX(i2).toFixed(4)} ${pos.getZ(i2).toFixed(4)} ${(-pos.getY(i2)).toFixed(4)}\n`;
+                    stlText += `      vertex ${pos.getX(i3).toFixed(4)} ${pos.getZ(i3).toFixed(4)} ${(-pos.getY(i3)).toFixed(4)}\n`;
+                    stlText += `    endloop\n  endfacet\n`;
+                }
             }
             stlText += "endsolid MobileModel\n";
+            hideLoading();
             downloadFile(stlText, 'model.stl');
         }
 
