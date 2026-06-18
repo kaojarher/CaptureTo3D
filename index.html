@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D 邊框主體建模器 v6</title>
+    <title>3D 正向邊框建模器 v7</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         :root {
-            --primary: #3b82f6;
+            --primary: #2563eb;
             --bg-dark: #090d16;
             --panel-bg: rgba(9, 13, 22, 0.95);
         }
@@ -21,13 +21,15 @@
         video, #three-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
         #three-canvas { display: none; z-index: 5; }
 
+        /* 讓相機預覽維持鏡鏡像以符合人類直覺，但我們擷取時會導正 */
+        video { transform: scaleX(-1); }
+
         #loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 7, 12, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; display: none; }
         .spinner { width: 45px; height: 45px; border: 4px solid #334155; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         .control-panel { position: relative; background: var(--panel-bg); backdrop-filter: blur(20px); padding: 22px; border-radius: 28px 28px 0 0; box-shadow: 0 -15px 35px rgba(0,0,0,0.6); z-index: 10; display: flex; flex-direction: column; gap: 14px; }
         
-        /* 滑桿樣式 */
         .slider-container {
             display: flex;
             flex-direction: column;
@@ -41,7 +43,7 @@
 
         .btn-group { display: flex; gap: 12px; width: 100%; }
         button { flex: 1; padding: 16px; border: none; border-radius: 14px; font-size: 1rem; font-weight: bold; cursor: pointer; color: white; }
-        .btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .btn-primary { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
         .btn-secondary { background: rgba(255, 255, 255, 0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); }
 
         .hidden { display: none !important; }
@@ -50,7 +52,7 @@
 </head>
 <body>
 
-    <header>SHAPE OUTLINE SCANNER v6</header>
+    <header>ANTI-MIRROR 3D SCANNER v7</header>
 
     <div id="container">
         <video id="video" autoplay playsinline muted></video>
@@ -59,7 +61,7 @@
 
         <div id="loading-overlay">
             <div class="spinner"></div>
-            <p id="loading-text">邊框深度結構提取中...</p>
+            <p id="loading-text">文字反鏡像正向處理中...</p>
         </div>
     </div>
 
@@ -72,7 +74,7 @@
             <input type="range" id="threshold-slider" min="30" max="220" value="120" oninput="updateThreshold(this.value)">
         </div>
 
-        <p id="info-text">💡 <b>拍出完美平面凸起</b>：讓被攝物位於單純乾淨的背景前（如白牆、素色桌面），邊框去背效果最精準！</p>
+        <p id="info-text">💡 <b>字體正向優化</b>：本版本已加入反鏡像演算，拍完照後 3D 模型上的文字和花紋會自動回歸正確方向。</p>
         
         <div id="capture-menu" class="btn-group">
             <button class="btn-primary" onclick="captureOutlineMesh()">📸 偵測邊框並凸出建模</button>
@@ -96,9 +98,9 @@
         const infoText = document.getElementById('info-text');
 
         let scene, camera, renderer, controls, mainMesh;
-        let lastCapturedImageData = null; // 暫存拍照圖檔，以利拉動滑桿時即時重新建模
+        let lastCapturedImageData = null; 
         let currentThreshold = 120;
-        const RES = 100; // 邊框解析網格密度
+        const RES = 100; 
 
         async function initCamera() {
             try {
@@ -128,9 +130,8 @@
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
 
-            // 均勻的工作室光線，突顯平面主體
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const dLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+            const dLight = new THREE.DirectionalLight(0xffffff, 0.6);
             dLight.position.set(10, 40, 20);
             scene.add(dLight);
 
@@ -155,41 +156,51 @@
             document.getElementById('slider-val').innerText = val;
             currentThreshold = parseInt(val);
             if (lastCapturedImageData) {
-                // 如果已經拍照，拉動滑桿時即時重新解算網格深度，不需重新拍照
                 buildOutlineMesh(lastCapturedImageData);
             }
         }
 
-        // 拍照擷取
+        // 核心修正點：在擷取相機影像時進行反鏡像矩陣翻轉
         async function captureOutlineMesh() {
             if (video.videoWidth === 0) return;
-            showLoading("擷取高解析影像...");
+            showLoading("反鏡像影像擷取中...");
             await delay(100);
 
             const ctx = calcCanvas.getContext('2d');
             const size = Math.min(video.videoWidth, video.videoHeight);
+            
             calcCanvas.width = 512;
             calcCanvas.height = 512;
+
+            // 清除之前的狀態
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            // 【關鍵技術】：水平反轉 Canvas 2D 渲染上下文，將瀏覽器自帶的鏡像效果中和回來！
+            ctx.translate(512, 0);
+            ctx.scale(-1, 1);
+
+            // 繪製裁切後的正方形相機畫面（此時存入畫布的已經是文字正向的影像）
             ctx.drawImage(video, (video.videoWidth - size)/2, (video.videoHeight - size)/2, size, size, 0, 0, 512, 512);
 
-            // 儲存原始高畫質圖
+            // 還原 Canvas 矩陣狀態避免影響後續操作
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+            // 儲存已導正、無鏡像的高畫質數據
             lastCapturedImageData = ctx.getImageData(0, 0, 512, 512);
             
             buildOutlineMesh(lastCapturedImageData);
         }
 
-        // ==================== 核心：邊框內平面凸出演算法 ====================
+        // 邊框內平面凸出演算法
         function buildOutlineMesh(hdImageData) {
-            showLoading("邊框分離與主體平面化運算...");
+            showLoading("正向網格深度解算...");
 
-            // 建立 512 的紋理貼圖
             const textureCanvas = document.createElement('canvas');
             textureCanvas.width = 512;
             textureCanvas.height = 512;
             textureCanvas.getContext('2d').putImageData(hdImageData, 0, 0);
             const texture = new THREE.CanvasTexture(textureCanvas);
 
-            // 將照片縮小到網格解析度 RES，進行邊框遮罩運算
             const lowCanvas = document.createElement('canvas');
             lowCanvas.width = RES;
             lowCanvas.height = RES;
@@ -198,10 +209,10 @@
             const imgData = lCtx.getImageData(0, 0, RES, RES).data;
 
             const depths = new Float32Array(RES * RES);
-            const objectHeight = 4.0; // 主體凸出的水平高度（平整）
-            const baseThickness = -2.0; // 背景與底座深度
+            const objectHeight = 4.0; 
+            const baseThickness = -2.0; 
 
-            // 電腦視覺分析：以角落像素作為背景基準色進行邊框差值比對
+            // 以角落像素作為背景基準色
             const bgR = (imgData[0] + imgData[(RES-1)*4]) / 2;
             const bgG = (imgData[1] + imgData[(RES-1)*4+1]) / 2;
             const bgB = (imgData[2] + imgData[(RES-1)*4+2]) / 2;
@@ -211,24 +222,20 @@
                     const idx = (y * RES + x) * 4;
                     const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
 
-                    // 計算當前像素與背景基準色的色差距離
                     const colorDiff = Math.sqrt(
                         Math.pow(r - bgR, 2) + 
                         Math.pow(g - bgG, 2) + 
                         Math.pow(b - bgB, 2)
                     );
 
-                    // 關鍵修正：若色差大於靈敏度閥值，判定為主體內。
-                    // 主體內部不論顏色深淺，Z 軸高度一律設為固定水平高度（objectHeight），達成表面絕對平整。
                     if (colorDiff > currentThreshold) {
                         depths[y * RES + x] = objectHeight;
                     } else {
-                        depths[y * RES + x] = 0; // 背景平攤
+                        depths[y * RES + x] = 0; 
                     }
                 }
             }
 
-            // 3D 封閉實體幾何建構
             const vertices = [];
             const uvs = [];
             const scale = 30 / RES;
@@ -250,6 +257,7 @@
                     vertices.push(x0, y0, z00,  x1, y0, z10,  x0, y1, z01);
                     vertices.push(x1, y0, z10,  x1, y1, z11,  x0, y1, z01);
 
+                    // UV 映射（由於幾何體已經正向，UV 保持標準座標即可）
                     const u0 = x / RES, u1 = (x + 1) / RES;
                     const v0 = 1 - y / RES, v1 = 1 - (y + 1) / RES;
                     uvs.push(u0, v0, u1, v0, u0, v1);
@@ -257,7 +265,7 @@
                 }
             }
 
-            // 2. 自動補齊四個側邊垂直牆（封閉式實體化，利於 3D 列印）
+            // 2. 自動補齊四個側邊垂直牆
             for (let x = 0; x < RES - 1; x++) {
                 const x0 = x * scale - offset, x1 = (x + 1) * scale - offset;
                 // 頂邊
@@ -291,11 +299,10 @@
             geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
             geometry.computeVertexNormals();
 
-            // 精緻材質：消除扭曲光影，呈現平整高清貼圖
             const material = new THREE.MeshStandardMaterial({
                 map: texture,
-                roughness: 0.25,
-                metalness: 0.1,
+                roughness: 0.3,
+                metalness: 0.05,
                 side: THREE.DoubleSide
             });
 
@@ -304,7 +311,6 @@
             mainMesh.rotation.x = -Math.PI / 2;
             scene.add(mainMesh);
 
-            // 介面切換
             video.style.display = 'none';
             threeCanvas.style.display = 'block';
             onWindowResize();
@@ -312,7 +318,7 @@
             captureMenu.classList.add('hidden');
             previewMenu.classList.remove('hidden');
             hideLoading();
-            infoText.innerText = "✨ 邊框平面模型生成成功！若邊框不完美，可直接拖動上方滑桿微調。";
+            infoText.innerText = "✨ 正向 3D 模型已生成！文字與方向已導正。";
         }
 
         function resetScanner() {
@@ -321,7 +327,7 @@
             threeCanvas.style.display = 'none';
             captureMenu.classList.remove('hidden');
             previewMenu.classList.add('hidden');
-            infoText.innerText = "💡 拍出完美平面凸起：讓被攝物位於單純乾淨的背景前，邊框去背效果最精準！";
+            infoText.innerText = "💡 字體正向優化：本版本已加入反鏡像演算，拍完照後 3D 模型上的文字和花紋會自動回歸正確方向。";
             if (mainMesh) {
                 scene.remove(mainMesh);
                 mainMesh = null;
@@ -331,7 +337,7 @@
         // ==================== OBJ/STL 匯出系統 ====================
         function exportOBJ() {
             if (!mainMesh) return;
-            let text = "# Silhouette Solid Flat Mesh OBJ\n";
+            let text = "# Unmirrored Solid Flat Mesh OBJ\n";
             const pos = mainMesh.geometry.attributes.position;
             const uv = mainMesh.geometry.attributes.uv;
 
@@ -344,12 +350,12 @@
             for (let i = 1; i <= pos.count; i += 3) {
                 text += `f ${i}/${i} ${i+1}/${i+1} ${i+2}/${i+2}\n`;
             }
-            downloadFile(text, 'outline_solid_model.obj');
+            downloadFile(text, 'unmirrored_model.obj');
         }
 
         function exportSTL() {
             if (!mainMesh) return;
-            let text = "solid OutlineSolidModel\n";
+            let text = "solid UnmirroredModel\n";
             const pos = mainMesh.geometry.attributes.position;
 
             for (let i = 0; i < pos.count; i += 3) {
@@ -359,8 +365,8 @@
                 text += `      vertex ${pos.getX(i+2).toFixed(4)} ${pos.getZ(i+2).toFixed(4)} ${(-pos.getY(i+2)).toFixed(4)}\n`;
                 text += `    endloop\n  endfacet\n`;
             }
-            text += "endsolid OutlineSolidModel\n";
-            downloadFile(text, 'outline_solid_model.stl');
+            text += "endsolid UnmirroredModel\n";
+            downloadFile(text, 'unmirrored_model.stl');
         }
 
         function downloadFile(content, fileName) {
