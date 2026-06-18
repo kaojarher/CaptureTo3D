@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D 實體相機掃描器 v5 - 終極逼真版</title>
+    <title>3D 邊框主體建模器 v6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         :root {
-            --primary: #f59e0b; /* 琥珀金代表高精度 */
+            --primary: #3b82f6;
             --bg-dark: #090d16;
             --panel-bg: rgba(9, 13, 22, 0.95);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
         body { background-color: var(--bg-dark); color: #f8fafc; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        header { background: rgba(0, 0, 0, 0.7); padding: 14px; text-align: center; font-size: 1.1rem; font-weight: bold; letter-spacing: 1px; z-index: 10; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        header { background: rgba(0, 0, 0, 0.7); padding: 14px; text-align: center; font-size: 1.1rem; font-weight: bold; z-index: 10; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
         
         #container { flex: 1; position: relative; width: 100%; background: #000; }
         video, #three-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -24,15 +24,25 @@
         #loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 7, 12, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; display: none; }
         .spinner { width: 45px; height: 45px; border: 4px solid #334155; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #loading-text { font-weight: 600; color: #e2e8f0; }
 
-        .control-panel { position: relative; background: var(--panel-bg); backdrop-filter: blur(20px); padding: 22px; border-radius: 28px 28px 0 0; box-shadow: 0 -15px 35px rgba(0,0,0,0.6); z-index: 10; display: flex; flex-direction: column; gap: 14px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .control-panel { position: relative; background: var(--panel-bg); backdrop-filter: blur(20px); padding: 22px; border-radius: 28px 28px 0 0; box-shadow: 0 -15px 35px rgba(0,0,0,0.6); z-index: 10; display: flex; flex-direction: column; gap: 14px; }
+        
+        /* 滑桿樣式 */
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(255,255,255,0.05);
+            padding: 10px 14px;
+            border-radius: 10px;
+        }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: #94a3b8; }
+        input[type=range] { width: 100%; height: 6px; background: #334155; border-radius: 5px; outline: none; }
+
         .btn-group { display: flex; gap: 12px; width: 100%; }
-        button { flex: 1; padding: 16px; border: none; border-radius: 14px; font-size: 1rem; font-weight: bold; cursor: pointer; color: white; transition: all 0.2s; }
-        .btn-primary { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4); }
+        button { flex: 1; padding: 16px; border: none; border-radius: 14px; font-size: 1rem; font-weight: bold; cursor: pointer; color: white; }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
         .btn-secondary { background: rgba(255, 255, 255, 0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); }
-        .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
 
         .hidden { display: none !important; }
         #info-text { font-size: 0.85rem; color: #94a3b8; text-align: center; line-height: 1.5; }
@@ -40,7 +50,7 @@
 </head>
 <body>
 
-    <header>REALISTIC 3D SOLID SCANNER</header>
+    <header>SHAPE OUTLINE SCANNER v6</header>
 
     <div id="container">
         <video id="video" autoplay playsinline muted></video>
@@ -49,21 +59,29 @@
 
         <div id="loading-overlay">
             <div class="spinner"></div>
-            <p id="loading-text">正在初始化深度引擎...</p>
+            <p id="loading-text">邊框深度結構提取中...</p>
         </div>
     </div>
 
     <div class="control-panel">
-        <p id="info-text">💡 <b>最強逼真秘訣</b>：找一個光線有明顯方向、紋理豐富的物體（如木雕、鞋子、有皺褶的衣物），並讓物體充滿畫面中央。</p>
+        <div class="slider-container" id="slider-box">
+            <div class="slider-label">
+                <span>邊框去背靈敏度 (物體與背景對比)</span>
+                <span id="slider-val">120</span>
+            </div>
+            <input type="range" id="threshold-slider" min="30" max="220" value="120" oninput="updateThreshold(this.value)">
+        </div>
+
+        <p id="info-text">💡 <b>拍出完美平面凸起</b>：讓被攝物位於單純乾淨的背景前（如白牆、素色桌面），邊框去背效果最精準！</p>
         
         <div id="capture-menu" class="btn-group">
-            <button class="btn-primary" onclick="captureRealisticSolid()">📸 拍攝並生成實體 3D</button>
+            <button class="btn-primary" onclick="captureOutlineMesh()">📸 偵測邊框並凸出建模</button>
         </div>
 
         <div id="preview-menu" class="btn-group hidden">
-            <button class="btn-secondary" onclick="resetScanner()">🔄 重新掃描</button>
+            <button class="btn-secondary" onclick="resetScanner()">🔄 重拍</button>
             <button class="btn-primary" onclick="exportOBJ()">💾 匯出 OBJ</button>
-            <button class="btn-primary" onclick="exportSTL()">💾 匯出 STL (可3D列印)</button>
+            <button class="btn-primary" onclick="exportSTL()">💾 匯出 STL</button>
         </div>
     </div>
 
@@ -77,8 +95,10 @@
         const previewMenu = document.getElementById('preview-menu');
         const infoText = document.getElementById('info-text');
 
-        let scene, camera, renderer, controls, solidMesh;
-        const RES = 90; // 實體密實度解析度
+        let scene, camera, renderer, controls, mainMesh;
+        let lastCapturedImageData = null; // 暫存拍照圖檔，以利拉動滑桿時即時重新建模
+        let currentThreshold = 120;
+        const RES = 100; // 邊框解析網格密度
 
         async function initCamera() {
             try {
@@ -89,7 +109,7 @@
                 video.srcObject = stream;
                 video.play();
             } catch (err) {
-                alert('無法取得相機：' + err.message);
+                alert('相機啟動失敗：' + err.message);
             }
         }
 
@@ -103,28 +123,16 @@
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.toneMapping = THREE.ACESFilmicToneMapping; // 啟用電影級色彩映射，讓光影過渡更自然
-            renderer.toneMappingExposure = 1.2;
             threeCanvas.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
 
-            // 設置逼真的工作室布光 (Studio Lighting)
-            scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-
-            const topLight = new THREE.DirectionalLight(0xffffff, 1.2);
-            topLight.position.set(10, 40, 15);
-            scene.add(topLight);
-
-            const fillLight = new THREE.DirectionalLight(0xf59e0b, 0.4); // 帶有金屬感的溫暖側光
-            fillLight.position.set(-20, 15, 10);
-            scene.add(fillLight);
-
-            const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.6); // 背光，用來勾勒物體邊緣輪廓
-            rimLight.position.set(0, -10, -25);
-            scene.add(rimLight);
+            // 均勻的工作室光線，突顯平面主體
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            dLight.position.set(10, 40, 20);
+            scene.add(dLight);
 
             window.addEventListener('resize', onWindowResize);
             animate();
@@ -143,77 +151,102 @@
             renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight);
         }
 
-        // ==================== 終極實體化 3D 運算 ====================
-        async function captureRealisticSolid() {
+        function updateThreshold(val) {
+            document.getElementById('slider-val').innerText = val;
+            currentThreshold = parseInt(val);
+            if (lastCapturedImageData) {
+                // 如果已經拍照，拉動滑桿時即時重新解算網格深度，不需重新拍照
+                buildOutlineMesh(lastCapturedImageData);
+            }
+        }
+
+        // 拍照擷取
+        async function captureOutlineMesh() {
             if (video.videoWidth === 0) return;
-            showLoading("高解析度畫面擷取...");
-            await delay(150);
+            showLoading("擷取高解析影像...");
+            await delay(100);
 
             const ctx = calcCanvas.getContext('2d');
             const size = Math.min(video.videoWidth, video.videoHeight);
-            
             calcCanvas.width = 512;
             calcCanvas.height = 512;
             ctx.drawImage(video, (video.videoWidth - size)/2, (video.videoHeight - size)/2, size, size, 0, 0, 512, 512);
 
-            const texture = new THREE.CanvasTexture(calcCanvas);
+            // 儲存原始高畫質圖
+            lastCapturedImageData = ctx.getImageData(0, 0, 512, 512);
+            
+            buildOutlineMesh(lastCapturedImageData);
+        }
 
-            showLoading("執行微細特徵與光影解算 (SfS)...");
-            await delay(250);
+        // ==================== 核心：邊框內平面凸出演算法 ====================
+        function buildOutlineMesh(hdImageData) {
+            showLoading("邊框分離與主體平面化運算...");
 
-            // 縮小尺寸用於建立幾何網格
-            const meshCanvas = document.createElement('canvas');
-            meshCanvas.width = RES;
-            meshCanvas.height = RES;
-            const mCtx = meshCanvas.getContext('2d');
-            mCtx.drawImage(calcCanvas, 0, 0, RES, RES);
-            const imgData = mCtx.getImageData(0, 0, RES, RES).data;
+            // 建立 512 的紋理貼圖
+            const textureCanvas = document.createElement('canvas');
+            textureCanvas.width = 512;
+            textureCanvas.height = 512;
+            textureCanvas.getContext('2d').putImageData(hdImageData, 0, 0);
+            const texture = new THREE.CanvasTexture(textureCanvas);
 
-            const heights = new Float32Array(RES * RES);
-            const baseThickness = -3; // 實體底座的厚度位置
+            // 將照片縮小到網格解析度 RES，進行邊框遮罩運算
+            const lowCanvas = document.createElement('canvas');
+            lowCanvas.width = RES;
+            lowCanvas.height = RES;
+            const lCtx = lowCanvas.getContext('2d');
+            lCtx.drawImage(textureCanvas, 0, 0, RES, RES);
+            const imgData = lCtx.getImageData(0, 0, RES, RES).data;
 
-            // 1. 深度與表面微紋理提取
+            const depths = new Float32Array(RES * RES);
+            const objectHeight = 4.0; // 主體凸出的水平高度（平整）
+            const baseThickness = -2.0; // 背景與底座深度
+
+            // 電腦視覺分析：以角落像素作為背景基準色進行邊框差值比對
+            const bgR = (imgData[0] + imgData[(RES-1)*4]) / 2;
+            const bgG = (imgData[1] + imgData[(RES-1)*4+1]) / 2;
+            const bgB = (imgData[2] + imgData[(RES-1)*4+2]) / 2;
+
             for (let y = 0; y < RES; y++) {
                 for (let x = 0; x < RES; x++) {
                     const idx = (y * RES + x) * 4;
                     const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
-                    
-                    // 基礎亮度
-                    const gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
 
-                    // 算子：邊緣下收演算法（讓四周平滑地接到基座）
-                    const nx = (x / (RES - 1)) * 2 - 1;
-                    const ny = (y / (RES - 1)) * 2 - 1;
-                    const distFromCenter = Math.min(1, Math.sqrt(nx*nx + ny*ny));
-                    const falloff = Math.pow(Math.cos(distFromCenter * Math.PI / 2), 0.8);
+                    // 計算當前像素與背景基準色的色差距離
+                    const colorDiff = Math.sqrt(
+                        Math.pow(r - bgR, 2) + 
+                        Math.pow(g - bgG, 2) + 
+                        Math.pow(b - bgB, 2)
+                    );
 
-                    // 結合基礎深度與邊緣下收
-                    heights[y * RES + x] = Math.max(0, gray * 7.5) * falloff;
+                    // 關鍵修正：若色差大於靈敏度閥值，判定為主體內。
+                    // 主體內部不論顏色深淺，Z 軸高度一律設為固定水平高度（objectHeight），達成表面絕對平整。
+                    if (colorDiff > currentThreshold) {
+                        depths[y * RES + x] = objectHeight;
+                    } else {
+                        depths[y * RES + x] = 0; // 背景平攤
+                    }
                 }
             }
 
-            showLoading("建構閉合式實體 3D 幾何體...");
-            await delay(200);
-
+            // 3D 封閉實體幾何建構
             const vertices = [];
             const uvs = [];
             const scale = 30 / RES;
             const offset = 15;
 
-            // 2. 生成正面複合網格（被攝物表面）
+            // 1. 生成平整主體表面網格
             for (let y = 0; y < RES - 1; y++) {
                 for (let x = 0; x < RES - 1; x++) {
-                    const z00 = heights[y * RES + x];
-                    const z10 = heights[y * RES + (x + 1)];
-                    const z01 = heights[(y + 1) * RES + x];
-                    const z11 = heights[(y + 1) * RES + (x + 1)];
+                    const z00 = depths[y * RES + x];
+                    const z10 = depths[y * RES + (x + 1)];
+                    const z01 = depths[(y + 1) * RES + x];
+                    const z11 = depths[(y + 1) * RES + (x + 1)];
 
                     const x0 = x * scale - offset;
                     const x1 = (x + 1) * scale - offset;
                     const y0 = y * scale - offset;
                     const y1 = (y + 1) * scale - offset;
 
-                    // 正面三角形組
                     vertices.push(x0, y0, z00,  x1, y0, z10,  x0, y1, z01);
                     vertices.push(x1, y0, z10,  x1, y1, z11,  x0, y1, z01);
 
@@ -224,81 +257,54 @@
                 }
             }
 
-            // 3. 自動封閉四個側邊（建立垂直實體牆，向下連到底座）
-            // 上下側邊封閉
+            // 2. 自動補齊四個側邊垂直牆（封閉式實體化，利於 3D 列印）
             for (let x = 0; x < RES - 1; x++) {
-                const x0 = x * scale - offset;
-                const x1 = (x + 1) * scale - offset;
-                
-                // 頂部邊緣 (y = 0)
-                const zTop0 = heights[x];
-                const zTop1 = heights[x + 1];
-                vertices.push(x0, 0 - offset, zTop0,  x0, 0 - offset, baseThickness,  x1, 0 - offset, zTop1);
-                vertices.push(x1, 0 - offset, zTop1,  x0, 0 - offset, baseThickness,  x1, 0 - offset, baseThickness);
-                uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0); // 側邊不套用主紋理，呈現純色實體感
-
-                // 底部邊緣 (y = RES - 1)
-                const yLast = RES - 1;
-                const zBot0 = heights[yLast * RES + x];
-                const zBot1 = heights[yLast * RES + (x + 1)];
-                vertices.push(x0, yLast * scale - offset, zBot0,  x1, yLast * scale - offset, zBot1,  x0, yLast * scale - offset, baseThickness);
-                vertices.push(x1, yLast * scale - offset, zBot1,  x1, yLast * scale - offset, baseThickness,  x0, yLast * scale - offset, baseThickness);
-                uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0);
+                const x0 = x * scale - offset, x1 = (x + 1) * scale - offset;
+                // 頂邊
+                vertices.push(x0, -offset, depths[x],  x0, -offset, baseThickness,  x1, -offset, depths[x+1]);
+                vertices.push(x1, -offset, depths[x+1],  x0, -offset, baseThickness,  x1, -offset, baseThickness);
+                // 底邊
+                const yL = RES - 1;
+                vertices.push(x0, yL*scale-offset, depths[yL*RES+x],  x1, yL*scale-offset, depths[yL*RES+x+1],  x0, yL*scale-offset, baseThickness);
+                vertices.push(x1, yL*scale-offset, depths[yL*RES+x+1],  x1, yL*scale-offset, baseThickness,  x0, yL*scale-offset, baseThickness);
+                uvs.push(0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0);
             }
-
-            // 左右側邊封閉
             for (let y = 0; y < RES - 1; y++) {
-                const y0 = y * scale - offset;
-                const y1 = (y + 1) * scale - offset;
-
-                // 左側邊 (x = 0)
-                const zLeft0 = heights[y * RES];
-                const zLeft1 = heights[(y + 1) * RES];
-                vertices.push(0 - offset, y0, zLeft0,  0 - offset, y1, zLeft1,  0 - offset, y0, baseThickness);
-                vertices.push(0 - offset, y1, zLeft1,  0 - offset, y1, baseThickness,  0 - offset, y0, baseThickness);
-                uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0);
-
-                // 右側邊 (x = RES - 1)
-                const xLast = RES - 1;
-                const zRight0 = heights[y * RES + xLast];
-                const zRight1 = heights[(y + 1) * RES + xLast];
-                vertices.push(xLast * scale - offset, y0, zRight0,  xLast * scale - offset, y0, baseThickness,  xLast * scale - offset, y1, zRight1);
-                vertices.push(xLast * scale - offset, y1, zRight1,  xLast * scale - offset, y0, baseThickness,  xLast * scale - offset, y1, baseThickness);
-                uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0);
+                const y0 = y * scale - offset, y1 = (y + 1) * scale - offset;
+                // 左邊
+                vertices.push(-offset, y0, depths[y*RES],  -offset, y1, depths[(y+1)*RES],  -offset, y0, baseThickness);
+                vertices.push(-offset, y1, depths[(y+1)*RES],  -offset, y1, baseThickness,  -offset, y0, baseThickness);
+                // 右邊
+                const xL = RES - 1;
+                vertices.push(xL*scale-offset, y0, depths[y*RES+xL],  xL*scale-offset, y0, baseThickness,  xL*scale-offset, y1, depths[(y+1)*RES+xL]);
+                vertices.push(xL*scale-offset, y1, depths[(y+1)*RES+xL],  xL*scale-offset, y0, baseThickness,  xL*scale-offset, y1, baseThickness);
+                uvs.push(0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0);
             }
 
-            // 4. 封閉最底面 (一整片平整平面)
+            // 3. 封底平底座
             vertices.push(-offset, -offset, baseThickness,  offset, -offset, baseThickness,  -offset, offset, baseThickness);
             vertices.push(offset, -offset, baseThickness,  offset, offset, baseThickness,  -offset, offset, baseThickness);
-            uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0);
+            uvs.push(0,0,0,0,0,0,0,0,0,0,0,0);
 
-            // 組裝 BufferGeometry
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
             geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
             geometry.computeVertexNormals();
 
-            // 高級 PBR 仿真材質
+            // 精緻材質：消除扭曲光影，呈現平整高清貼圖
             const material = new THREE.MeshStandardMaterial({
                 map: texture,
-                roughness: 0.45,  // 稍微粗糙的真實散射表面
-                metalness: 0.15,  // 微弱的金屬光澤反射
-                bumpMap: texture, // 同時將影像作為凹凸紋理，大幅逼真化微觀毛細孔
-                bumpScale: 0.12,
+                roughness: 0.25,
+                metalness: 0.1,
                 side: THREE.DoubleSide
             });
 
-            if (solidMesh) scene.remove(solidMesh);
-            solidMesh = new THREE.Mesh(geometry, material);
-            solidMesh.rotation.x = -Math.PI / 2; // 水平放置於基座上
-            scene.add(solidMesh);
+            if (mainMesh) scene.remove(mainMesh);
+            mainMesh = new THREE.Mesh(geometry, material);
+            mainMesh.rotation.x = -Math.PI / 2;
+            scene.add(mainMesh);
 
-            // 鏡頭鎖定
-            controls.target.set(0, 0, 0);
-            camera.position.set(0, 25, 45);
-            controls.update();
-
-            // 開啟預覽界面
+            // 介面切換
             video.style.display = 'none';
             threeCanvas.style.display = 'block';
             onWindowResize();
@@ -306,28 +312,28 @@
             captureMenu.classList.add('hidden');
             previewMenu.classList.remove('hidden');
             hideLoading();
-            infoText.innerText = "✨ 實體 3D 模型已完美封閉生成！可翻轉檢視厚實的基座與細緻反光。";
+            infoText.innerText = "✨ 邊框平面模型生成成功！若邊框不完美，可直接拖動上方滑桿微調。";
         }
 
         function resetScanner() {
+            lastCapturedImageData = null;
             video.style.display = 'block';
             threeCanvas.style.display = 'none';
             captureMenu.classList.remove('hidden');
             previewMenu.classList.add('hidden');
-            infoText.innerText = "💡 強最逼真秘訣：找一個光線有明顯方向、紋理豐富的物體，並讓物體充滿畫面中央。";
-            if (solidMesh) {
-                scene.remove(solidMesh);
-                solidMesh = null;
+            infoText.innerText = "💡 拍出完美平面凸起：讓被攝物位於單純乾淨的背景前，邊框去背效果最精準！";
+            if (mainMesh) {
+                scene.remove(mainMesh);
+                mainMesh = null;
             }
         }
 
-        // ==================== 實體封閉網格的 OBJ/STL 匯出 (相容所有 3D 列印軟體) ====================
+        // ==================== OBJ/STL 匯出系統 ====================
         function exportOBJ() {
-            if (!solidMesh) return;
-            showLoading("正在編譯實體 OBJ...");
-            const pos = solidMesh.geometry.attributes.position;
-            const uv = solidMesh.geometry.attributes.uv;
-            let text = "# Realistic Solid Mesh OBJ\n";
+            if (!mainMesh) return;
+            let text = "# Silhouette Solid Flat Mesh OBJ\n";
+            const pos = mainMesh.geometry.attributes.position;
+            const uv = mainMesh.geometry.attributes.uv;
 
             for (let i = 0; i < pos.count; i++) {
                 text += `v ${pos.getX(i).toFixed(4)} ${pos.getZ(i).toFixed(4)} ${(-pos.getY(i)).toFixed(4)}\n`;
@@ -338,15 +344,13 @@
             for (let i = 1; i <= pos.count; i += 3) {
                 text += `f ${i}/${i} ${i+1}/${i+1} ${i+2}/${i+2}\n`;
             }
-            hideLoading();
-            downloadFile(text, 'solid_model.obj');
+            downloadFile(text, 'outline_solid_model.obj');
         }
 
         function exportSTL() {
-            if (!solidMesh) return;
-            showLoading("正在編譯封閉式 STL...");
-            const pos = solidMesh.geometry.attributes.position;
-            let text = "solid RealisticSolidModel\n";
+            if (!mainMesh) return;
+            let text = "solid OutlineSolidModel\n";
+            const pos = mainMesh.geometry.attributes.position;
 
             for (let i = 0; i < pos.count; i += 3) {
                 text += `  facet normal 0 0 0\n    outer loop\n`;
@@ -355,9 +359,8 @@
                 text += `      vertex ${pos.getX(i+2).toFixed(4)} ${pos.getZ(i+2).toFixed(4)} ${(-pos.getY(i+2)).toFixed(4)}\n`;
                 text += `    endloop\n  endfacet\n`;
             }
-            text += "endsolid RealisticSolidModel\n";
-            hideLoading();
-            downloadFile(text, 'solid_model.stl');
+            text += "endsolid OutlineSolidModel\n";
+            downloadFile(text, 'outline_solid_model.stl');
         }
 
         function downloadFile(content, fileName) {
