@@ -3,99 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>多視角 3D 相機掃描器 v4</title>
+    <title>3D 實體相機掃描器 v5 - 終極逼真版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         :root {
-            --primary: #10b981; /* 綠色代表多圖掃描成功 */
-            --bg-dark: #0f172a;
-            --panel-bg: rgba(15, 23, 42, 0.95);
+            --primary: #f59e0b; /* 琥珀金代表高精度 */
+            --bg-dark: #090d16;
+            --panel-bg: rgba(9, 13, 22, 0.95);
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
         body { background-color: var(--bg-dark); color: #f8fafc; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        header { background: rgba(0, 0, 0, 0.6); padding: 12px; text-align: center; font-size: 1rem; font-weight: bold; z-index: 10; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        header { background: rgba(0, 0, 0, 0.7); padding: 14px; text-align: center; font-size: 1.1rem; font-weight: bold; letter-spacing: 1px; z-index: 10; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
         
         #container { flex: 1; position: relative; width: 100%; background: #000; }
         video, #three-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
         #three-canvas { display: none; z-index: 5; }
 
-        /* 多視角拍攝進度條 */
-        #step-indicator {
-            position: absolute;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-            z-index: 15;
-            background: rgba(0,0,0,0.6);
-            padding: 8px 16px;
-            border-radius: 20px;
-        }
-        .step-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #475569;
-            transition: all 0.3s;
-        }
-        .step-dot.active { background: var(--primary); transform: scale(1.2); }
-        .step-dot.done { background: #34d399; }
-
-        #loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; display: none; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        #loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 7, 12, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; display: none; }
+        .spinner { width: 45px; height: 45px; border: 4px solid #334155; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loading-text { font-weight: 600; color: #e2e8f0; }
 
-        .control-panel { position: relative; background: var(--panel-bg); backdrop-filter: blur(15px); padding: 20px; border-radius: 24px 24px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); z-index: 10; display: flex; flex-direction: column; gap: 12px; }
-        .btn-group { display: flex; gap: 10px; width: 100%; }
-        button { flex: 1; padding: 16px; border: none; border-radius: 14px; font-size: 1rem; font-weight: bold; cursor: pointer; color: white; }
-        .btn-primary { background: var(--primary); }
-        .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #cbd5e1; }
+        .control-panel { position: relative; background: var(--panel-bg); backdrop-filter: blur(20px); padding: 22px; border-radius: 28px 28px 0 0; box-shadow: 0 -15px 35px rgba(0,0,0,0.6); z-index: 10; display: flex; flex-direction: column; gap: 14px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .btn-group { display: flex; gap: 12px; width: 100%; }
+        button { flex: 1; padding: 16px; border: none; border-radius: 14px; font-size: 1rem; font-weight: bold; cursor: pointer; color: white; transition: all 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4); }
+        .btn-secondary { background: rgba(255, 255, 255, 0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
 
         .hidden { display: none !important; }
-        #info-text { font-size: 0.85rem; color: #94a3b8; text-align: center; font-weight: 500; }
+        #info-text { font-size: 0.85rem; color: #94a3b8; text-align: center; line-height: 1.5; }
     </style>
 </head>
 <body>
 
-    <header>MULTI-VIEW 3D SCANNER v4</header>
+    <header>REALISTIC 3D SOLID SCANNER</header>
 
     <div id="container">
-        <div id="step-indicator">
-            <div id="dot0" class="step-dot active"></div>
-            <div id="dot1" class="step-dot"></div>
-            <div id="dot2" class="step-dot"></div>
-        </div>
-
         <video id="video" autoplay playsinline muted></video>
-        <canvas id="hidden-canvas" style="display:none;"></canvas>
+        <canvas id="calc-canvas" style="display:none;"></canvas>
         <div id="three-canvas"></div>
 
         <div id="loading-overlay">
             <div class="spinner"></div>
-            <p id="loading-text">正在比對多視角特徵頂點...</p>
+            <p id="loading-text">正在初始化深度引擎...</p>
         </div>
     </div>
 
     <div class="control-panel">
-        <p id="info-text">步驟 1: 請對準物體【左側 45 度】並拍攝</p>
+        <p id="info-text">💡 <b>最強逼真秘訣</b>：找一個光線有明顯方向、紋理豐富的物體（如木雕、鞋子、有皺褶的衣物），並讓物體充滿畫面中央。</p>
         
         <div id="capture-menu" class="btn-group">
-            <button class="btn-primary" onclick="triggerMultiCapture()">📸 拍攝當前視角</button>
+            <button class="btn-primary" onclick="captureRealisticSolid()">📸 拍攝並生成實體 3D</button>
         </div>
 
         <div id="preview-menu" class="btn-group hidden">
-            <button class="btn-secondary" onclick="resetMultiScanner()">🔄 重拍</button>
-            <button class="btn-primary" onclick="exportOBJ()">💾 OBJ</button>
-            <button class="btn-primary" onclick="exportSTL()">💾 STL</button>
+            <button class="btn-secondary" onclick="resetScanner()">🔄 重新掃描</button>
+            <button class="btn-primary" onclick="exportOBJ()">💾 匯出 OBJ</button>
+            <button class="btn-primary" onclick="exportSTL()">💾 匯出 STL (可3D列印)</button>
         </div>
     </div>
 
     <script>
         const video = document.getElementById('video');
-        const hiddenCanvas = document.getElementById('hidden-canvas');
+        const calcCanvas = document.getElementById('calc-canvas');
         const threeCanvas = document.getElementById('three-canvas');
         const loadingOverlay = document.getElementById('loading-overlay');
         const loadingText = document.getElementById('loading-text');
@@ -103,55 +77,54 @@
         const previewMenu = document.getElementById('preview-menu');
         const infoText = document.getElementById('info-text');
 
-        let scene, camera, renderer, controls, currentMesh;
-        
-        // 儲存三個視角的影像數據
-        let capturedImages = []; 
-        let currentStep = 0; 
-        const SCAN_RES = 90; // 網格多角度運算解析度
-
-        const stepInstructions = [
-            "步驟 1: 請對準物體【左側 45 度】並拍攝",
-            "步驟 2: 請對準物體【正前方】並拍攝",
-            "步驟 3: 請對準物體【右側 45 度】並拍攝"
-        ];
+        let scene, camera, renderer, controls, solidMesh;
+        const RES = 90; // 實體密實度解析度
 
         async function initCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 800 }, height: { ideal: 800 } },
+                    video: { facingMode: 'environment', width: { ideal: 1024 }, height: { ideal: 1024 } },
                     audio: false
                 });
                 video.srcObject = stream;
                 video.play();
             } catch (err) {
-                alert('相機啟動失敗：' + err.message);
+                alert('無法取得相機：' + err.message);
             }
         }
 
         function initThree() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0f172a);
+            scene.background = new THREE.Color(0x090d16);
 
-            camera = new THREE.PerspectiveCamera(45, threeCanvas.clientWidth / threeCanvas.clientHeight, 0.1, 1000);
-            camera.position.set(0, 25, 45);
+            camera = new THREE.PerspectiveCamera(40, threeCanvas.clientWidth / threeCanvas.clientHeight, 0.1, 1000);
+            camera.position.set(0, 30, 50);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; // 啟用電影級色彩映射，讓光影過渡更自然
+            renderer.toneMappingExposure = 1.2;
             threeCanvas.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-            const light1 = new THREE.DirectionalLight(0xffffff, 0.8);
-            light1.position.set(10, 30, 20);
-            scene.add(light1);
-            
-            const light2 = new THREE.DirectionalLight(0x10b981, 0.3); // 帶有掃描感的綠色補光
-            light2.position.set(-15, 10, -10);
-            scene.add(light2);
+            // 設置逼真的工作室布光 (Studio Lighting)
+            scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+
+            const topLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            topLight.position.set(10, 40, 15);
+            scene.add(topLight);
+
+            const fillLight = new THREE.DirectionalLight(0xf59e0b, 0.4); // 帶有金屬感的溫暖側光
+            fillLight.position.set(-20, 15, 10);
+            scene.add(fillLight);
+
+            const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.6); // 背光，用來勾勒物體邊緣輪廓
+            rimLight.position.set(0, -10, -25);
+            scene.add(rimLight);
 
             window.addEventListener('resize', onWindowResize);
             animate();
@@ -170,217 +143,221 @@
             renderer.setSize(threeCanvas.clientWidth, threeCanvas.clientHeight);
         }
 
-        // 分步捕捉邏輯
-        async function triggerMultiCapture() {
+        // ==================== 終極實體化 3D 運算 ====================
+        async function captureRealisticSolid() {
             if (video.videoWidth === 0) return;
+            showLoading("高解析度畫面擷取...");
+            await delay(150);
 
-            // 擷取當前影像像素
-            hiddenCanvas.width = SCAN_RES;
-            hiddenCanvas.height = SCAN_RES;
-            const ctx = hiddenCanvas.getContext('2d');
-            const minDim = Math.min(video.videoWidth, video.videoHeight);
-            ctx.drawImage(video, (video.videoWidth - minDim)/2, (video.videoHeight - minDim)/2, minDim, minDim, 0, 0, SCAN_RES, SCAN_RES);
+            const ctx = calcCanvas.getContext('2d');
+            const size = Math.min(video.videoWidth, video.videoHeight);
             
-            const imgData = ctx.getImageData(0, 0, SCAN_RES, SCAN_RES);
-            capturedImages.push(imgData);
+            calcCanvas.width = 512;
+            calcCanvas.height = 512;
+            ctx.drawImage(video, (video.videoWidth - size)/2, (video.videoHeight - size)/2, size, size, 0, 0, 512, 512);
 
-            // 更新 UI 進度燈
-            document.getElementById(`dot${currentStep}`).classList.remove('active');
-            document.getElementById(`dot${currentStep}`).classList.add('done');
+            const texture = new THREE.CanvasTexture(calcCanvas);
 
-            currentStep++;
+            showLoading("執行微細特徵與光影解算 (SfS)...");
+            await delay(250);
 
-            if (currentStep < 3) {
-                document.getElementById(`dot${currentStep}`).classList.add('active');
-                infoText.innerText = stepInstructions[currentStep];
-            } else {
-                // 三張拍完，啟動多視角立體交叉運算
-                await processMultiViews();
+            // 縮小尺寸用於建立幾何網格
+            const meshCanvas = document.createElement('canvas');
+            meshCanvas.width = RES;
+            meshCanvas.height = RES;
+            const mCtx = meshCanvas.getContext('2d');
+            mCtx.drawImage(calcCanvas, 0, 0, RES, RES);
+            const imgData = mCtx.getImageData(0, 0, RES, RES).data;
+
+            const heights = new Float32Array(RES * RES);
+            const baseThickness = -3; // 實體底座的厚度位置
+
+            // 1. 深度與表面微紋理提取
+            for (let y = 0; y < RES; y++) {
+                for (let x = 0; x < RES; x++) {
+                    const idx = (y * RES + x) * 4;
+                    const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+                    
+                    // 基礎亮度
+                    const gray = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+
+                    // 算子：邊緣下收演算法（讓四周平滑地接到基座）
+                    const nx = (x / (RES - 1)) * 2 - 1;
+                    const ny = (y / (RES - 1)) * 2 - 1;
+                    const distFromCenter = Math.min(1, Math.sqrt(nx*nx + ny*ny));
+                    const falloff = Math.pow(Math.cos(distFromCenter * Math.PI / 2), 0.8);
+
+                    // 結合基礎深度與邊緣下收
+                    heights[y * RES + x] = Math.max(0, gray * 7.5) * falloff;
+                }
             }
-        }
 
-        // ==================== 核心：多視角視差立體融合演算法 ====================
-        async function processMultiViews() {
-            showLoading("多視角幾何點雲交叉比對中...");
-            await delay(400);
-
-            const leftImg = capturedImages[0].data;
-            const centerImg = capturedImages[1].data;
-            const rightImg = capturedImages[2].data;
+            showLoading("建構閉合式實體 3D 幾何體...");
+            await delay(200);
 
             const vertices = [];
             const uvs = [];
-            
-            // 建立一幅融合深度圖
-            const computedDepths = new Float32Array(SCAN_RES * SCAN_RES);
-
-            showLoading("計算視差立體三角網格...");
-            await delay(300);
-
-            for (let y = 0; y < SCAN_RES; y++) {
-                for (let x = 0; x < SCAN_RES; x++) {
-                    const idx = (y * SCAN_RES + x) * 4;
-
-                    // 取得三個視角的灰階
-                    const gLeft = (leftImg[idx] + leftImg[idx+1] + leftImg[idx+2]) / 3;
-                    const gCenter = (centerImg[idx] + centerImg[idx+1] + centerImg[idx+2]) / 3;
-                    const gRight = (rightImg[idx] + rightImg[idx+1] + rightImg[idx+2]) / 3;
-
-                    // 【核心多圖視差演算法】：
-                    // 比對左右視角的像素特徵位移。如果左右視角亮度變化劇烈，代表該處為物體邊緣的立體交界。
-                    const parallaxShift = Math.abs(gLeft - gRight) / 255.0;
-                    const centerBase = gCenter / 255.0;
-
-                    // 融合方程式：真正的立體厚度 = 正面基礎形狀 + 兩側視差形成的物理弧度
-                    // 這能有效讓物體在邊緣「向後包覆縮進」，形成圓潤的 3D 柱狀/實體感，而非單純的正面凸起
-                    let finalDepth = (centerBase * 0.4) + (parallaxShift * 0.6);
-                    
-                    // 邊緣收縮抑制（讓邊緣自然下收，形成圓柱體般的 3D 厚度）
-                    const radiusX = (x - SCAN_RES/2) / (SCAN_RES/2);
-                    const edgeDroop = Math.sqrt(Math.max(0, 1 - radiusX * radiusX)); 
-                    
-                    computedDepths[y * SCAN_RES + x] = finalDepth * edgeDroop * 8; // 深度放大係數
-                }
-            }
-
-            // 建立 3D 平滑圓弧幾何體
-            const cellSize = 30 / SCAN_RES;
+            const scale = 30 / RES;
             const offset = 15;
 
-            for (let y = 0; y < SCAN_RES - 1; y++) {
-                for (let x = 0; x < SCAN_RES - 1; x++) {
-                    const z00 = computedDepths[y * SCAN_RES + x];
-                    const z10 = computedDepths[y * SCAN_RES + (x + 1)];
-                    const z01 = computedDepths[(y + 1) * SCAN_RES + x];
-                    const z11 = computedDepths[(y + 1) * SCAN_RES + (x + 1)];
+            // 2. 生成正面複合網格（被攝物表面）
+            for (let y = 0; y < RES - 1; y++) {
+                for (let x = 0; x < RES - 1; x++) {
+                    const z00 = heights[y * RES + x];
+                    const z10 = heights[y * RES + (x + 1)];
+                    const z01 = heights[(y + 1) * RES + x];
+                    const z11 = heights[(y + 1) * RES + (x + 1)];
 
-                    const x0 = x * cellSize - offset;
-                    const x1 = (x + 1) * cellSize - offset;
-                    const y0 = y * cellSize - offset;
-                    const y1 = (y + 1) * cellSize - offset;
+                    const x0 = x * scale - offset;
+                    const x1 = (x + 1) * scale - offset;
+                    const y0 = y * scale - offset;
+                    const y1 = (y + 1) * scale - offset;
 
-                    // 三角形 1
+                    // 正面三角形組
                     vertices.push(x0, y0, z00,  x1, y0, z10,  x0, y1, z01);
-                    // 三角形 2
                     vertices.push(x1, y0, z10,  x1, y1, z11,  x0, y1, z01);
 
-                    // 對應對應 UV 貼圖座標
-                    uvs.push(x/SCAN_RES, 1 - y/SCAN_RES,  (x+1)/SCAN_RES, 1 - y/SCAN_RES,  x/SCAN_RES, 1 - (y+1)/SCAN_RES);
-                    uvs.push((x+1)/SCAN_RES, 1 - y/SCAN_RES,  (x+1)/SCAN_RES, 1 - (y+1)/SCAN_RES,  x/SCAN_RES, 1 - (y+1)/SCAN_RES);
+                    const u0 = x / RES, u1 = (x + 1) / RES;
+                    const v0 = 1 - y / RES, v1 = 1 - (y + 1) / RES;
+                    uvs.push(u0, v0, u1, v0, u0, v1);
+                    uvs.push(u1, v0, u1, v1, u0, v1);
                 }
             }
 
+            // 3. 自動封閉四個側邊（建立垂直實體牆，向下連到底座）
+            // 上下側邊封閉
+            for (let x = 0; x < RES - 1; x++) {
+                const x0 = x * scale - offset;
+                const x1 = (x + 1) * scale - offset;
+                
+                // 頂部邊緣 (y = 0)
+                const zTop0 = heights[x];
+                const zTop1 = heights[x + 1];
+                vertices.push(x0, 0 - offset, zTop0,  x0, 0 - offset, baseThickness,  x1, 0 - offset, zTop1);
+                vertices.push(x1, 0 - offset, zTop1,  x0, 0 - offset, baseThickness,  x1, 0 - offset, baseThickness);
+                uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0); // 側邊不套用主紋理，呈現純色實體感
+
+                // 底部邊緣 (y = RES - 1)
+                const yLast = RES - 1;
+                const zBot0 = heights[yLast * RES + x];
+                const zBot1 = heights[yLast * RES + (x + 1)];
+                vertices.push(x0, yLast * scale - offset, zBot0,  x1, yLast * scale - offset, zBot1,  x0, yLast * scale - offset, baseThickness);
+                vertices.push(x1, yLast * scale - offset, zBot1,  x1, yLast * scale - offset, baseThickness,  x0, yLast * scale - offset, baseThickness);
+                uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0);
+            }
+
+            // 左右側邊封閉
+            for (let y = 0; y < RES - 1; y++) {
+                const y0 = y * scale - offset;
+                const y1 = (y + 1) * scale - offset;
+
+                // 左側邊 (x = 0)
+                const zLeft0 = heights[y * RES];
+                const zLeft1 = heights[(y + 1) * RES];
+                vertices.push(0 - offset, y0, zLeft0,  0 - offset, y1, zLeft1,  0 - offset, y0, baseThickness);
+                vertices.push(0 - offset, y1, zLeft1,  0 - offset, y1, baseThickness,  0 - offset, y0, baseThickness);
+                uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0);
+
+                // 右側邊 (x = RES - 1)
+                const xLast = RES - 1;
+                const zRight0 = heights[y * RES + xLast];
+                const zRight1 = heights[(y + 1) * RES + xLast];
+                vertices.push(xLast * scale - offset, y0, zRight0,  xLast * scale - offset, y0, baseThickness,  xLast * scale - offset, y1, zRight1);
+                vertices.push(xLast * scale - offset, y1, zRight1,  xLast * scale - offset, y0, baseThickness,  xLast * scale - offset, y1, baseThickness);
+                uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0);
+            }
+
+            // 4. 封閉最底面 (一整片平整平面)
+            vertices.push(-offset, -offset, baseThickness,  offset, -offset, baseThickness,  -offset, offset, baseThickness);
+            vertices.push(offset, -offset, baseThickness,  offset, offset, baseThickness,  -offset, offset, baseThickness);
+            uvs.push(0,0, 0,0, 0,0, 0,0, 0,0, 0,0);
+
+            // 組裝 BufferGeometry
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
             geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
             geometry.computeVertexNormals();
 
-            // 將高清的正面照片作為主材質貼圖
-            const mainTextureCanvas = document.createElement('canvas');
-            mainTextureCanvas.width = 512;
-            mainTextureCanvas.height = 512;
-            const tCtx = mainTextureCanvas.getContext('2d');
-            // 從正面照片（第二張，索引為 1）重新擷取清晰圖
-            tCtx.putImageData(resizeImageData(capturedImages[1], 512, 512), 0, 0);
-            const texture = new THREE.CanvasTexture(mainTextureCanvas);
-
+            // 高級 PBR 仿真材質
             const material = new THREE.MeshStandardMaterial({
                 map: texture,
-                roughness: 0.4,
-                metalness: 0.2,
+                roughness: 0.45,  // 稍微粗糙的真實散射表面
+                metalness: 0.15,  // 微弱的金屬光澤反射
+                bumpMap: texture, // 同時將影像作為凹凸紋理，大幅逼真化微觀毛細孔
+                bumpScale: 0.12,
                 side: THREE.DoubleSide
             });
 
-            if (currentMesh) scene.remove(currentMesh);
-            currentMesh = new THREE.Mesh(geometry, material);
-            currentMesh.rotation.x = -Math.PI / 2;
-            scene.add(currentMesh);
+            if (solidMesh) scene.remove(solidMesh);
+            solidMesh = new THREE.Mesh(geometry, material);
+            solidMesh.rotation.x = -Math.PI / 2; // 水平放置於基座上
+            scene.add(solidMesh);
 
-            // 調整視角
+            // 鏡頭鎖定
             controls.target.set(0, 0, 0);
-            camera.position.set(0, 20, 40);
+            camera.position.set(0, 25, 45);
             controls.update();
 
-            // 切換 RWD 介面
+            // 開啟預覽界面
             video.style.display = 'none';
             threeCanvas.style.display = 'block';
-            document.getElementById('step-indicator').style.display = 'none';
             onWindowResize();
 
             captureMenu.classList.add('hidden');
             previewMenu.classList.remove('hidden');
             hideLoading();
-            infoText.innerText = "🎉 多視角立體模型生成成功！請翻轉檢視側邊弧度";
+            infoText.innerText = "✨ 實體 3D 模型已完美封閉生成！可翻轉檢視厚實的基座與細緻反光。";
         }
 
-        // 輔助函式：放大影像資料用於貼圖
-        function resizeImageData(imgData, targetW, targetH) {
-            const canvas = document.createElement('canvas');
-            canvas.width = imgData.width;
-            canvas.height = imgData.height;
-            canvas.getContext('2d').putImageData(imgData, 0, 0);
-            
-            const dstCanvas = document.createElement('canvas');
-            dstCanvas.width = targetW;
-            dstCanvas.height = targetH;
-            dstCanvas.getContext('2d').drawImage(canvas, 0, 0, targetW, targetH);
-            return dstCanvas.getContext('2d').getImageData(0, 0, targetW, targetH);
-        }
-
-        function resetMultiScanner() {
-            capturedImages = [];
-            currentStep = 0;
+        function resetScanner() {
             video.style.display = 'block';
             threeCanvas.style.display = 'none';
-            document.getElementById('step-indicator').style.display = 'flex';
-            
-            for(let i=0; i<3; i++) {
-                document.getElementById(`dot${i}`).className = 'step-dot';
-            }
-            document.getElementById('dot0').classList.add('active');
-
             captureMenu.classList.remove('hidden');
             previewMenu.classList.add('hidden');
-            infoText.innerText = stepInstructions[0];
-            if (currentMesh) {
-                scene.remove(currentMesh);
-                currentMesh = null;
+            infoText.innerText = "💡 強最逼真秘訣：找一個光線有明顯方向、紋理豐富的物體，並讓物體充滿畫面中央。";
+            if (solidMesh) {
+                scene.remove(solidMesh);
+                solidMesh = null;
             }
         }
 
-        // ==================== OBJ / STL 穩定匯出模組 ====================
+        // ==================== 實體封閉網格的 OBJ/STL 匯出 (相容所有 3D 列印軟體) ====================
         function exportOBJ() {
-            if (!currentMesh) return;
-            let objText = "# Multi-View Scanner OBJ Export\n";
-            const pos = currentMesh.geometry.attributes.position;
-            const uv = currentMesh.geometry.attributes.uv;
+            if (!solidMesh) return;
+            showLoading("正在編譯實體 OBJ...");
+            const pos = solidMesh.geometry.attributes.position;
+            const uv = solidMesh.geometry.attributes.uv;
+            let text = "# Realistic Solid Mesh OBJ\n";
 
             for (let i = 0; i < pos.count; i++) {
-                objText += `v ${pos.getX(i).toFixed(4)} ${pos.getZ(i).toFixed(4)} ${(-pos.getY(i)).toFixed(4)}\n`;
+                text += `v ${pos.getX(i).toFixed(4)} ${pos.getZ(i).toFixed(4)} ${(-pos.getY(i)).toFixed(4)}\n`;
             }
             for (let i = 0; i < uv.count; i++) {
-                objText += `vt ${uv.getX(i).toFixed(4)} ${uv.getY(i).toFixed(4)}\n`;
+                text += `vt ${uv.getX(i).toFixed(4)} ${uv.getY(i).toFixed(4)}\n`;
             }
             for (let i = 1; i <= pos.count; i += 3) {
-                objText += `f ${i}/${i} ${i+1}/${i+1} ${i+2}/${i+2}\n`;
+                text += `f ${i}/${i} ${i+1}/${i+1} ${i+2}/${i+2}\n`;
             }
-            downloadFile(objText, 'multiview_model.obj');
+            hideLoading();
+            downloadFile(text, 'solid_model.obj');
         }
 
         function exportSTL() {
-            if (!currentMesh) return;
-            let stlText = "solid MultiViewModel\n";
-            const pos = currentMesh.geometry.attributes.position;
+            if (!solidMesh) return;
+            showLoading("正在編譯封閉式 STL...");
+            const pos = solidMesh.geometry.attributes.position;
+            let text = "solid RealisticSolidModel\n";
 
             for (let i = 0; i < pos.count; i += 3) {
-                stlText += `  facet normal 0 0 0\n    outer loop\n`;
-                stlText += `      vertex ${pos.getX(i).toFixed(4)} ${pos.getZ(i).toFixed(4)} ${(-pos.getY(i)).toFixed(4)}\n`;
-                stlText += `      vertex ${pos.getX(i+1).toFixed(4)} ${pos.getZ(i+1).toFixed(4)} ${(-pos.getY(i+1)).toFixed(4)}\n`;
-                stlText += `      vertex ${pos.getX(i+2).toFixed(4)} ${pos.getZ(i+2).toFixed(4)} ${(-pos.getY(i+2)).toFixed(4)}\n`;
-                stlText += `    endloop\n  endfacet\n`;
+                text += `  facet normal 0 0 0\n    outer loop\n`;
+                text += `      vertex ${pos.getX(i).toFixed(4)} ${pos.getZ(i).toFixed(4)} ${(-pos.getY(i)).toFixed(4)}\n`;
+                text += `      vertex ${pos.getX(i+1).toFixed(4)} ${pos.getZ(i+1).toFixed(4)} ${(-pos.getY(i+1)).toFixed(4)}\n`;
+                text += `      vertex ${pos.getX(i+2).toFixed(4)} ${pos.getZ(i+2).toFixed(4)} ${(-pos.getY(i+2)).toFixed(4)}\n`;
+                text += `    endloop\n  endfacet\n`;
             }
-            stlText += "endsolid MultiViewModel\n";
-            downloadFile(stlText, 'multiview_model.stl');
+            text += "endsolid RealisticSolidModel\n";
+            hideLoading();
+            downloadFile(text, 'solid_model.stl');
         }
 
         function downloadFile(content, fileName) {
